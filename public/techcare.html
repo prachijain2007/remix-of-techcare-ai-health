@@ -4644,6 +4644,14 @@ async function renderAuthenticatedIdentity(){
   nameEl.textContent = fullName;
   metaEl.textContent = details.join(" · ");
   avatarEl.textContent = initials || "TC";
+  if (authenticatedRole === "patient") {
+    const patient = currentPatient();
+    patient.name = fullName;
+    patient.initials = initials || patient.initials;
+    if (profile?.age) patient.age = profile.age;
+    if (profile?.gender) patient.gender = profile.gender;
+    renderAll();
+  }
 }
 
 document.getElementById("headerSignOut").addEventListener("click", async () => {
