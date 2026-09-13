@@ -14,14 +14,37 @@ export type Database = {
   }
   public: {
     Tables: {
+      care_assignments: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
       patient_cases: {
         Row: {
           age: number | null
           created_at: string
           created_by: string
           diagnosis: string | null
+          doctor_id: string | null
           gender: string | null
           id: string
+          patient_id: string | null
           patient_name: string
           source: string | null
           symptoms: string | null
@@ -32,8 +55,10 @@ export type Database = {
           created_at?: string
           created_by?: string
           diagnosis?: string | null
+          doctor_id?: string | null
           gender?: string | null
           id?: string
+          patient_id?: string | null
           patient_name: string
           source?: string | null
           symptoms?: string | null
@@ -44,8 +69,10 @@ export type Database = {
           created_at?: string
           created_by?: string
           diagnosis?: string | null
+          doctor_id?: string | null
           gender?: string | null
           id?: string
+          patient_id?: string | null
           patient_name?: string
           source?: string | null
           symptoms?: string | null
