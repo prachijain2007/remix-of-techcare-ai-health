@@ -475,30 +475,20 @@
           <span id="themeIcon">🌙</span>
         </button>
 
-        <!-- Patient switcher -->
-        <div class="relative">
-
-          <button onclick="togglePatientSwitcher()"
-                  class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2">
-
-            <div id="topPatientAvatar"
-                 class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white">
-            </div>
-
-            <div class="text-left hidden sm:block">
-              <div id="topPatientName" class="text-sm font-bold"></div>
-              <div id="topPatientMeta" class="text-[11px] text-slate-400"></div>
-            </div>
-
-            <span class="text-slate-400">⌄</span>
-          </button>
-
-          <div id="patientSwitcher"
-               class="hidden absolute right-0 top-14 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50">
+        <!-- Authenticated account identity -->
+        <div id="accountIdentity" class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2" aria-label="Signed-in account">
+          <div id="accountAvatar" class="w-9 h-9 rounded-xl flex items-center justify-center font-black text-white bg-teal-600">··</div>
+          <div class="text-left hidden sm:block max-w-[180px]">
+            <div id="accountName" class="text-sm font-bold truncate">Loading profile…</div>
+            <div id="accountMeta" class="text-[11px] text-slate-400 truncate">Secure account</div>
           </div>
-
         </div>
 
+        <button id="headerSignOut" type="button"
+                class="h-10 px-4 rounded-xl bg-slate-950 text-white text-sm font-bold flex items-center gap-2 transition hover:bg-slate-800 active:scale-[.98]">
+          <span aria-hidden="true">↪</span>
+          <span class="hidden sm:inline">Log Out</span>
+        </button>
 
         <!-- Doctor is dynamically patient-specific -->
         <div id="topDoctor"
@@ -2360,94 +2350,12 @@ function showToast(message, type = "info") {
 
 
 /* ============================================================
-   PATIENT SWITCHING
-============================================================ */
-
-function renderPatientSwitcher() {
-
-  const container = document.getElementById("patientSwitcher");
-
-  container.innerHTML = Object.values(patients).map(patient => {
-
-    const theme = themeFor(patient);
-    const selected = patient.id === currentPatientId;
-
-    return `
-      <button
-        onclick="switchPatient('${patient.id}')"
-        class="patient-card w-full flex items-center gap-3 p-3 rounded-2xl text-left
-               ${selected ? "bg-slate-50" : "hover:bg-slate-50"}">
-
-        <div
-          class="w-11 h-11 rounded-xl flex items-center justify-center text-white font-black"
-          style="background:${theme.bg}">
-          ${patient.initials}
-        </div>
-
-        <div class="flex-1">
-          <div class="font-bold text-sm">
-            ${patient.name}
-          </div>
-
-          <div class="text-xs text-slate-400">
-            ${patient.age} ${patient.type === "baby" ? "years" : "yrs"} · ${patient.gender}
-          </div>
-        </div>
-
-        ${selected ? `<span class="text-emerald-500 font-black">✓</span>` : ""}
-      </button>
-    `;
-  }).join("");
-}
-
-function togglePatientSwitcher() {
-
-  const el = document.getElementById("patientSwitcher");
-
-  el.classList.toggle("hidden");
-
-  renderPatientSwitcher();
-}
-
-function switchPatient(id) {
-
-  currentPatientId = id;
-
-  const patient = getPatient();
-
-  currentLanguage = patient.language;
-
-  document.body.className =
-    `${patient.type}-theme min-h-screen flex`;
-
-  document.getElementById("patientSwitcher").classList.add("hidden");
-
-  renderAll();
-
-  showToast(`${patient.name} selected`, "success");
-}
-
-
-/* ============================================================
    TOP BAR
 ============================================================ */
 
 function renderTopBar() {
 
   const patient = getPatient();
-  const theme = themeFor(patient);
-
-  const avatar = document.getElementById("topPatientAvatar");
-
-  avatar.textContent = patient.initials;
-  avatar.style.background = theme.bg;
-
-  document.getElementById("topPatientName").textContent =
-    patient.name;
-
-  document.getElementById("topPatientMeta").textContent =
-    `${patient.age}${patient.type === "baby" ? " yrs" : ""} · ${patient.gender}`;
-
   document.getElementById("topDoctor").innerHTML = `
 
     <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
@@ -4311,7 +4219,6 @@ function renderAll() {
 
   renderTopBar();
   renderSidebarPatient();
-  renderPatientSwitcher();
   renderPatientSpecificMenu();
 
   document.getElementById("languageSelect").value =
@@ -4692,6 +4599,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 let sb = null;
 let doctorEmail = "";
+let authenticatedUserId = "";
+let authenticatedRole = "";
 
 function esc(v){ return String(v == null ? "" : v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
@@ -4702,6 +4611,14 @@ window.addEventListener("message", async (event) => {
   sb = createClient(d.supabaseUrl, d.supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
   await sb.auth.setSession({ access_token: d.access_token, refresh_token: d.refresh_token });
   doctorEmail = d.email || "";
+  authenticatedUserId = d.user_id || "";
+  authenticatedRole = d.role || "";
+  const accountNumber = String(doctorEmail).match(/(?:patient|doctor)([123])@/i)?.[1];
+  if (accountNumber) {
+    currentPatientId = ({ "1": "rahul", "2": "priya", "3": "aarav" })[accountNumber] || "rahul";
+    renderAll();
+  }
+  await renderAuthenticatedIdentity();
   buildUI();
   loadCases();
 });
@@ -4711,6 +4628,35 @@ parent.postMessage({ type: "techcare-ready" }, window.location.origin);
 function currentPatient(){
   try { return getPatient() || {}; } catch (e) { return {}; }
 }
+
+async function renderAuthenticatedIdentity(){
+  const nameEl = document.getElementById("accountName");
+  const metaEl = document.getElementById("accountMeta");
+  const avatarEl = document.getElementById("accountAvatar");
+  if (!sb || !authenticatedUserId || !nameEl || !metaEl || !avatarEl) return;
+  const { data: profile } = await sb.from("profiles")
+    .select("full_name, age, gender, phone")
+    .eq("user_id", authenticatedUserId)
+    .maybeSingle();
+  const fullName = profile?.full_name || doctorEmail || "Signed-in user";
+  const initials = fullName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+  const details = [authenticatedRole ? authenticatedRole[0].toUpperCase() + authenticatedRole.slice(1) : "Member", profile?.age ? `${profile.age} yrs` : "", profile?.gender || ""].filter(Boolean);
+  nameEl.textContent = fullName;
+  metaEl.textContent = details.join(" · ");
+  avatarEl.textContent = initials || "TC";
+}
+
+document.getElementById("headerSignOut").addEventListener("click", async () => {
+  const button = document.getElementById("headerSignOut");
+  button.disabled = true;
+  button.querySelector("span:last-child").textContent = "Logging out…";
+  if (sb) await sb.auth.signOut();
+  sb = null;
+  authenticatedUserId = "";
+  authenticatedRole = "";
+  doctorEmail = "";
+  parent.postMessage({ type: "techcare-signout" }, window.location.origin);
+});
 
 function saveCard(pageId, sourceLabel){
   const host = document.getElementById(pageId);
