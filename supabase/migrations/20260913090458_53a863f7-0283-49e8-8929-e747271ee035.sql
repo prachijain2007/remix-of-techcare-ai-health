@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fill_case_assignment() FROM authenticated, anon;
