@@ -11,15 +11,15 @@ export const Route = createFileRoute("/login")({
   },
   head: () => ({
     meta: [
-      { title: "Doctor Sign In — TECHCARE AI" },
+      { title: "Sign In — TECHCARE AI" },
       {
         name: "description",
-        content: "Secure doctor sign in for the TECHCARE AI clinical workspace and patient records.",
+        content: "Secure sign in for patients and doctors on the TECHCARE AI clinical workspace.",
       },
-      { property: "og:title", content: "Doctor Sign In — TECHCARE AI" },
+      { property: "og:title", content: "Sign In — TECHCARE AI" },
       {
         property: "og:description",
-        content: "Secure doctor sign in for the TECHCARE AI clinical workspace.",
+        content: "Secure sign in for patients and doctors on the TECHCARE AI clinical workspace.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -28,8 +28,11 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+type Role = "patient" | "doctor";
+
 function LoginPage() {
   const navigate = useNavigate();
+  const [role, setRole] = useState<Role>("patient");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -39,12 +42,36 @@ function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (signInError) {
-      setError("Those login details didn't work. Please check the ID and password.");
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !data.user) {
+      setLoading(false);
+      setError("Those login details didn't work. Please check the email and password.");
       return;
     }
+
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id);
+
+    const hasRole = (roles ?? []).some((r) => r.role === role);
+    if (!hasRole) {
+      await supabase.auth.signOut();
+      setLoading(false);
+      setError(
+        role === "doctor"
+          ? "This account is not registered as a doctor."
+          : "This account is not registered as a patient.",
+      );
+      return;
+    }
+
+    setLoading(false);
     navigate({ to: "/", replace: true });
   }
 
@@ -57,14 +84,33 @@ function LoginPage() {
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight text-slate-900">TECHCARE AI</h1>
-            <p className="text-xs text-slate-400">Clinical workspace — doctor access</p>
+            <p className="text-xs text-slate-400">Clinical workspace</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+          {(["patient", "doctor"] as Role[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                setRole(r);
+                setError(null);
+              }}
+              aria-pressed={role === r}
+              className={`rounded-xl py-2.5 text-sm font-bold transition ${
+                role === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+              }`}
+            >
+              {r === "patient" ? "Log in as Patient" : "Log in as Doctor"}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label htmlFor="email" className="text-xs font-bold tracking-wider text-slate-500">
-              LOGIN ID / EMAIL
+              EMAIL
             </label>
             <input
               id="email"
@@ -73,7 +119,6 @@ function LoginPage() {
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="doctor1@techcare.ai"
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-500"
             />
           </div>
@@ -89,7 +134,6 @@ function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-500"
             />
           </div>
@@ -105,21 +149,9 @@ function LoginPage() {
             disabled={loading}
             className="w-full rounded-xl bg-slate-950 py-3 text-sm font-bold text-white disabled:opacity-60"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in…" : "Submit"}
           </button>
         </form>
-
-        <div className="mt-7 rounded-2xl bg-slate-50 p-4">
-          <div className="text-[11px] font-black tracking-widest text-slate-400">DEMO ACCOUNTS</div>
-          <ul className="mt-2 space-y-1 text-[12px] text-slate-600">
-            <li>doctor1@techcare.ai · Pass@123</li>
-            <li>doctor2@techcare.ai · Pass@456</li>
-            <li>doctor3@techcare.ai · Pass@789</li>
-          </ul>
-          <p className="mt-3 text-[11px] text-slate-400">
-            Each doctor only sees the patient cases saved under their own login.
-          </p>
-        </div>
       </div>
     </main>
   );
