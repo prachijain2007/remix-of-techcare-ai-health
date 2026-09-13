@@ -41,12 +41,19 @@ function Index() {
       const session = data.session;
       const frame = frameRef.current;
       if (!session || !frame?.contentWindow) return;
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
+      const role = roles?.find((item) => item.role === "doctor" || item.role === "patient")?.role;
       frame.contentWindow.postMessage(
         {
           type: "techcare-session",
           access_token: session.access_token,
           refresh_token: session.refresh_token,
+          user_id: session.user.id,
           email: session.user.email,
+          role,
           supabaseUrl: import.meta.env["VITE_SUPABASE_URL"],
           supabaseKey: import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
         },
